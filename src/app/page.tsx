@@ -1,68 +1,66 @@
 'use client'
 
-import { Button, Card, EnsSVG, Heading, Typography } from '@ensdomains/thorin'
-import styled, { css } from 'styled-components'
+import { Button, Heading, Typography } from '@ensdomains/thorin'
+import { createSiweMessage, generateSiweNonce } from 'viem/siwe'
+import { useAccount, useSignMessage } from 'wagmi'
 
 import { Container, Layout } from '@/components/templates'
+import { useAuth } from '@/hooks/useAuth'
 
 export default function Home() {
+  const { data } = useAuth()
+  const { address } = useAccount()
+  const { signMessageAsync } = useSignMessage()
+
+  const nonce = generateSiweNonce()
+  const message = createSiweMessage({
+    // @ts-expect-error: This message isn't used unless the address is defined
+    address: address,
+    chainId: 1,
+    domain: 'localhost',
+    nonce: nonce,
+    uri: 'http://localhost:3000/',
+    version: '1',
+    expirationTime: new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+  })
+
   return (
     <Layout>
       <header />
 
       <Container as="main" $variant="flexVerticalCenter" $width="large">
-        <SvgWrapper>
-          <EnsSVG />
-        </SvgWrapper>
+        <Heading level="1">Sign in with Ethereum</Heading>
 
-        <Heading level="1">ENS Frontend Examples</Heading>
+        <Button
+          width="52"
+          disabled={!address}
+          onClick={async () => {
+            const signature = await signMessageAsync({ message })
 
-        <ExamplesGrid>
-          <Card title="Name/Address Input">
-            <Typography color="textSecondary">
-              Every address input should also accept ENS names.
-            </Typography>
+            await fetch('/api/auth/set', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ message, signature }),
+            })
+          }}
+        >
+          Sign-in
+        </Button>
 
-            <Button as="a" href="/input">
-              View
-            </Button>
-          </Card>
-
-          <Card title="ENS Profile">
-            <Typography color="textSecondary">
-              Show the primary and avatar for an ENS name.
-            </Typography>
-
-            <Button as="a" href="/profile">
-              View
-            </Button>
-          </Card>
-        </ExamplesGrid>
+        <Button
+          as="a"
+          href="/special-page"
+          size="small"
+          width="52"
+          colorStyle="blueSecondary"
+        >
+          Visit gated page
+        </Button>
       </Container>
 
       <footer />
     </Layout>
   )
 }
-
-const SvgWrapper = styled.div(
-  ({ theme }) => css`
-    --size: ${theme.space['16']};
-    width: var(--size);
-    height: var(--size);
-
-    svg {
-      width: 100%;
-      height: 100%;
-    }
-  `
-)
-
-const ExamplesGrid = styled.div(
-  ({ theme }) => css`
-    width: 100%;
-    display: grid;
-    gap: ${theme.space['4']};
-    grid-template-columns: repeat(auto-fit, minmax(${theme.space['64']}, 1fr));
-  `
-)
